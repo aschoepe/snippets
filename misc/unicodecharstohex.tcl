@@ -7,7 +7,7 @@ proc UnicodeCharsToHex { txt } {
       append new \\u $c $d $a $b
     }
   }
-  return $new
+  return [string map {\0 {}} $new]
 }
 
 puts [UnicodeCharsToHex \u65B0\u7D30\u660E\u9AD4]

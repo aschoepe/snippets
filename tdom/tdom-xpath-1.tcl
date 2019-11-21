@@ -1,4 +1,4 @@
-set v(http,data) {<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+set data {<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE fmresultset PUBLIC "-//FMI//DTD fmresultset//EN" "https://156.67.166.120:14343/fmi/xml/fmresultset.dtd">
 <fmresultset xmlns="http://www.filemaker.com/xml/fmresultset" version="1.0">
   <error code="0"/>
@@ -31,7 +31,7 @@ set v(http,data) {<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 # fmresultset -> resultset -> record -> field[name="rgnr"]
 
 package require tdom
-dom parse $v(http,data) doc
+dom parse $data doc
 set root [$doc documentElement]
 set node [lindex [$root selectNodes -namespaces [list X [$root namespaceURI]] {//X:field[@name='rgnr']/X:data/text()}] 0]
 puts rgnr=[$node nodeValue]

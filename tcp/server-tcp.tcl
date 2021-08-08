@@ -33,7 +33,7 @@ proc clientClose { fd } {
 
 
 proc clientRead { fd } {
-  global debug forever
+  global debug forever argv
 
   if {[eof $fd]} {
     if {$debug} {puts stderr "clientRead: $fd EOF"}
@@ -46,6 +46,11 @@ proc clientRead { fd } {
 
       switch -glob -- $line {
         ping* {
+	  set pause [lindex $argv end]
+	  if {[string is integer -strict $pause] && $pause > 0} {
+	    if {$debug} {puts stderr "pause $pause ms"}
+	    after $pause
+	  }
 	  clientWrite $fd "ping server [ts]"
         }
 	quit {

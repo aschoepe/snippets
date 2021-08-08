@@ -8,11 +8,10 @@ exec /usr/local/bin/tclsh8.6 "$0" -- "$@"
 
 package require Tcl 8.6
 
-set options(debug) 1
-set options(log) 0
-set options(port) 34034
-set options(server) localhost
-set options(socket) {}
+set debug 1
+set port 34034
+set server localhost
+set socket {}
 
 proc ts { {ms {}} } {
   if {$ms eq {}} {
@@ -21,32 +20,59 @@ proc ts { {ms {}} } {
   return [clock format [expr {$ms / 1000}] -format {%Y-%m-%dT%H:%M:%S}].[format %03d [expr {$ms % 1000}]]
 }
 
-if {[catch {socket $options(server) $options(port)} options(socket)]} {
-  puts "exit: no socket"
+if {[catch {socket $server $port} socket]} {
+  puts stderr "exit: can not connect: $socket"
   exit 0
 }
-puts connected
+if {$debug} {puts stderr "connected: $socket to host $server port $port"}
+
+
+if 0 {
+fconfigure $socket -encoding iso8859-1
+
+set data "ping client [ts]"
+if {$debug} {puts stderr "sending: $socket [string length $data] bytes: [string range $data 0 40] ..."}
+puts $socket $data
+flush $socket
+set data {}
+
+if {$debug} {puts stderr "awaiting answer"}
+gets $socket data
+if {$debug} {puts stderr "received: $socket [string length $data] bytes: [string range $data 0 40] ..."}
+
+if {$debug} {puts stderr "disconnect: $socket"}
+close $socket
+if {$debug} {puts stderr exit}
+}
+
+
+if 1 {
+proc serverClose { fd } {
+  global debug clients
+
+  if {$debug} {puts stderr "serverClose: $fd"}
+  catch { close $fd }
+}
 
 
 proc serverRead { fd } {
-  global options
-  global forever
+  global debug forever timeoutId
 
   if {[eof $fd]} {
-    if {$options(debug)} {puts stderr "serverRead EOF"}
+    if {$debug} {puts stderr "serverRead: $fd EOF"}
     serverClose $fd
   } else {
     set n [gets $fd line]
     if {$n >= 0} {
 
-      puts "serverRead $n bytes -> [string range $line 0 40] ..."
+      if {$debug} {puts "serverRead: $fd $n bytes -> [string range $line 0 40] ..."}
       switch -glob -- $line {
         ping* {
-          handler $fd $line
-        }
-        quit - Quit {
-          set forever end
-          exit 0
+	  if {[info exists timeoutId]} {
+	    if {$debug} {puts "cancel timeout"}
+	    after cancel $timeoutId
+	  }
+          set forever $line
         }
         default {
         }
@@ -57,45 +83,28 @@ proc serverRead { fd } {
 }
 
 
-if 1 {
-fconfigure $options(socket) -encoding iso8859-1
+fconfigure $socket -blocking 0 -buffering line -encoding iso8859-1
+fileevent $socket readable "serverRead $socket"
 
 set data "ping client [ts]"
-if {$data != {}} {
-  puts "sending [string length $data] bytes: [string range $data 0 40] ..."
-  puts $options(socket) $data
-  flush $options(socket)
-  set data {}
+if {$debug} {puts stderr "sending: $socket [string length $data] bytes: [string range $data 0 40] ..."}
+puts $socket $data
+flush $socket
+set data {}
 
-  puts receiving
-  gets $options(socket) data
-  puts stderr "received [string length $data] bytes: [string range $data 0 40] ..."
-} else {
-  puts "data empty"
+set timeout [lindex $argv end]
+if {[string is integer -strict $timeout] && $timeout > 0} {
+  if {$debug} {puts stderr "set timeout $timeout ms"}
+  set timeoutId [after $timeout {set forever timeout}]
 }
 
-puts exit
-close $options(socket)
-}
 
-if 0 {
-fconfigure $options(socket) -blocking 0 -buffering line -encoding iso8859-1
-fileevent $options(socket) readable "serverRead $options(socket)"
+if {$debug} {puts stderr "awaiting answer"}
+vwait forever
+set data $forever
+if {$debug} {puts stderr "received: $socket [string length $data] bytes: [string range $data 0 40] ..."}
 
-set data "ping client [ts]"
-if {$data != {}} {
-  puts "sending [string length $data] bytes: [string range $data 0 40] ..."
-  puts $options(socket) $data
-  flush $options(socket)
-  set data {}
-
-  puts receiving
-  gets $options(socket) data
-  puts stderr "received [string length $data] bytes: [string range $data 0 40] ..."
-} else {
-  puts "data empty"
-}
-
-puts exit
-close $options(socket)
+if {$debug} {puts stderr "disconnect: $socket"}
+close $socket
+if {$debug} {puts stderr exit}
 }

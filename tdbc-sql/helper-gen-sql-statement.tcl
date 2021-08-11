@@ -3,7 +3,33 @@
 # tab = table name
 # ign = ignore fields on replace
 
-proc sqlStm { con stm tab {ign {}} } {
+proc sqlStm { con stm tab args } {
+  array set opts {
+    altnkey 0
+    ignore {}
+  }
+
+  set len [llength $args]
+  set idx 0
+  for {set idx 0} {$idx < $len} {incr idx} {
+    switch -- [set opt [lindex $args $idx]] {
+      -ignore {
+        incr idx
+        if {$idx < $len} {
+          set opts([string range $opt 1 end]) [lindex $args $idx]
+        } else {
+          error "option '$opt': missing argument"
+        }
+      }
+      -altnkey {
+        set opts([string range $opt 1 end]) 1
+      }
+      default {
+        error "unknown option \"$opt\", should be: -altnkey or -ignore"
+      }
+    }
+  }
+
   catch {set dbs [$con configure -database]}
   set cols [dict keys [$con columns $tab]]
   #puts cols=$cols
@@ -18,7 +44,11 @@ proc sqlStm { con stm tab {ign {}} } {
 
   set keys {}
   foreach item $pkey {
-    lappend keys "$item = :KeYclAuSe_$item"
+    if {$opts(altnkey)} {
+      lappend keys "$item = :KeYclAuSe_$item"
+    } else {
+      lappend keys "$item = :$item"
+    }
   }
   #puts keys=$keys
 
@@ -33,13 +63,13 @@ proc sqlStm { con stm tab {ign {}} } {
       set sql "insert into $tab ([join $cols {, }]) values ([join $vals {, }])"
     }
     replace {
-      if {$ign eq {}} {
+      if {$opts(ignore) eq {}} {
         set sql "replace into $tab ([join $cols {, }]) values ([join $vals {, }])"
       } else {
         set cols2 {}
         set vals2 {}
         foreach item $cols {
-          if {[lsearch -exact $ign $item] == -1} {
+          if {$item ni $opts(ignore)} {
             lappend cols2 $item
             lappend vals2 ":$item"
           }
@@ -53,7 +83,9 @@ proc sqlStm { con stm tab {ign {}} } {
     update {
       set vals2 {}
       foreach item $cols {
-        lappend vals2 "$item = :$item"
+        if {$item ni $opts(ignore)} {
+          lappend vals2 "$item = :$item"
+        }
       }
       set sql "update $tab set [join $vals2 {, }] where [join $keys { and }]"
     }

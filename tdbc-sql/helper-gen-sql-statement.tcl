@@ -7,6 +7,7 @@ proc sqlStm { con stm tab args } {
   array set opts {
     altnkey 0
     ignore {}
+    tolower 0
   }
 
   set len [llength $args]
@@ -21,11 +22,11 @@ proc sqlStm { con stm tab args } {
           error "option '$opt': missing argument"
         }
       }
-      -altnkey {
+      -altnkey - -tolower {
         set opts([string range $opt 1 end]) 1
       }
       default {
-        error "unknown option \"$opt\", should be: -altnkey or -ignore"
+        error "unknown option \"$opt\", should be: -altnkey, -ignore or -tolower"
       }
     }
   }
@@ -78,7 +79,19 @@ proc sqlStm { con stm tab args } {
       }
     }
     select {
-      set sql "select [join $cols {, }] from $tab where [join $keys { and }]"
+      if {$opts(tolower)} {
+        set vals2 {}
+        foreach item $cols {
+          lappend vals2 "$item as \"[string tolower $item]\""
+        }
+        set keys2 {}
+        foreach item $keys {
+          lappend keys2 [string tolower $item]
+        }
+        set sql "select [join $vals2 {, }] from $tab where [join $keys2 { and }]"
+      } else {
+        set sql "select [join $cols {, }] from $tab where [join $keys { and }]"
+      }
     }
     update {
       set vals2 {}

@@ -12,6 +12,7 @@ set table test
 set ignore {cdate cinfo}
 
 puts [sqlStm $src select $table]
+puts [sqlStm $src select $table -tolower]
 puts [sqlStm $src insert $table]
 puts [sqlStm $src replace $table]
 puts [sqlStm $src replace $table -ignore $ignore]
